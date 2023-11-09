@@ -4,10 +4,6 @@ namespace DataAccess.Models;
 
 public partial class PetShop2023DbContext : DbContext
 {
-    public PetShop2023DbContext()
-    {
-    }
-
     public PetShop2023DbContext(DbContextOptions<PetShop2023DbContext> options)
         : base(options)
     {
@@ -18,9 +14,6 @@ public partial class PetShop2023DbContext : DbContext
     public virtual DbSet<PetGroup> PetGroups { get; set; }
 
     public virtual DbSet<PetShopMember> PetShopMembers { get; set; }
-
-    //protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    //    => optionsBuilder.UseSqlServer("Server=(local);uid=sa;pwd=12345;database=PetShop2023DB;TrustServerCertificate=True");
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

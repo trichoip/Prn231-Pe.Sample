@@ -1,6 +1,4 @@
-﻿using System.Text.Json.Serialization;
-
-namespace DataAccess.Models;
+﻿namespace DataAccess.Models;
 
 public partial class Pet
 {
@@ -18,6 +16,5 @@ public partial class Pet
 
     public string? PetGroupId { get; set; }
 
-    [JsonIgnore]
     public virtual PetGroup? PetGroup { get; set; }
 }

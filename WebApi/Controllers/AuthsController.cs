@@ -27,8 +27,8 @@ public class AuthsController : ControllerBase
     public async Task<ActionResult> Login(LoginRequest login)
     {
         var user = await _service
-            .FindOneAsync(x => x.MemberId == login.Username &&
-                               x.MemberPassword == login.Password);
+            .FindByAsync(x => x.MemberId == login.Username &&
+                              x.MemberPassword == login.Password);
         if (user == null)
         {
             return Unauthorized();
@@ -51,9 +51,6 @@ public class AuthsController : ControllerBase
              signingCredentials: creds);
         var jwt = new JwtSecurityTokenHandler().WriteToken(token);
 
-        return Ok(new
-        {
-            token = jwt
-        });
+        return Ok(new TokenRequest(jwt));
     }
 }

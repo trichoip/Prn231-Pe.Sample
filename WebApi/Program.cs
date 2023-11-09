@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repository;
 using Swashbuckle.AspNetCore.Filters;
+using System.Reflection;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,7 +13,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddDbContext<PetShop2023DbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .UseLazyLoadingProxies()
+           .EnableSensitiveDataLogging()
+           .EnableDetailedErrors());
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
                 {
@@ -39,6 +43,7 @@ builder.Services.AddSwaggerGen(c =>
     });
     c.OperationFilter<SecurityRequirementsOperationFilter>(JwtBearerDefaults.AuthenticationScheme);
 });
+builder.Services.AddAutoMapper(Assembly.GetExecutingAssembly());
 
 var app = builder.Build();
 
@@ -51,6 +56,11 @@ if (app.Environment.IsDevelopment())
         c.EnablePersistAuthorization();
     });
 }
+
+app.UseCors(x => x
+   .AllowAnyOrigin()
+   .AllowAnyMethod()
+   .AllowAnyHeader());
 
 app.UseHttpsRedirection();
 

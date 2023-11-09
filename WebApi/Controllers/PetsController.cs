@@ -1,118 +1,112 @@
-﻿using DataAccess.Models;
+﻿using AutoMapper;
+using DataAccess.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Repository;
+using Repository.Helpers;
+using WebApi.DTOs;
 
 namespace WebApi.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    // de keu role nao ghi vao do
     [Authorize(Roles = "2")]
     public class PetsController : ControllerBase
     {
         private readonly ServiceBase<Pet> _service;
         private readonly ServiceBase<PetGroup> _servicePetGroup;
+        private readonly IMapper _mapper;
 
         public PetsController(
             ServiceBase<Pet> service,
-            ServiceBase<PetGroup> servicePetGroup)
+            ServiceBase<PetGroup> servicePetGroup,
+            IMapper mapper)
         {
             _service = service;
             _servicePetGroup = servicePetGroup;
+            _mapper = mapper;
         }
 
-        // GET: api/Pets
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Pet>>> GetPets(string PetGroupId, DateTime? MinImportDate, DateTime? MaxImportDate)
+        public async Task<ActionResult<PaginatedResponse<PetResponse>>> GetPets(
+            string? PetGroupId,
+            DateTime? MinImportDate,
+            DateTime? MaxImportDate,
+            int pageIndex,
+            int pageSize)
         {
-
-            if (MinImportDate == null || MaxImportDate == null)
-            {
-                return await _service.FindAllAsync(p => p.PetGroupId == PetGroupId);
-            }
-
-            return await _service.FindAllAsync(
-                        p => p.PetGroupId == PetGroupId &&
-                             p.ImportDate >= MinImportDate &&
-                             p.ImportDate <= MaxImportDate);
+            var pet = await _service.FindAsync<PetResponse>(
+                pageIndex,
+                pageSize,
+                p => (string.IsNullOrEmpty(PetGroupId) || p.PetGroupId == PetGroupId) &&
+                     (!MinImportDate.HasValue || p.ImportDate >= MinImportDate) &&
+                     (!MaxImportDate.HasValue || p.ImportDate <= MaxImportDate));
+            return Ok(pet.ToPaginatedResponse());
         }
 
-        // GET: api/Pets/5
         [HttpGet("{id}")]
-        public async Task<ActionResult<Pet>> GetPet(int id)
+        public async Task<ActionResult<PetResponse>> GetPet(int id)
         {
-            var pet = await _service.FindOneAsync(p => p.PetId == id);
-
+            var pet = await _service.FindByAsync(p => p.PetId == id);
             if (pet == null)
             {
-                return NotFound();
+                return Problem(detail: $"pet id {id} not found", statusCode: 404);
             }
-
-            return pet;
+            var petResponse = _mapper.Map<PetResponse>(pet);
+            return Ok(petResponse);
         }
 
-        // PUT: api/Pets/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutPet(int id, Pet pet)
+        public async Task<IActionResult> PutPet(int id, PetRequest petRequest)
         {
-            if (id != pet.PetId)
+            if (id != petRequest.PetId)
             {
-                return BadRequest();
+                return Problem(detail: $"pet id {id} not match with pet id {petRequest.PetId}", statusCode: 400);
             }
 
-            var entity = await _service.FindOneAsync(p => p.PetId == id);
-            if (entity == null)
+            var pet = await _service.FindByAsync(p => p.PetId == id);
+            if (pet == null)
             {
-                return NotFound();
+                return Problem(detail: $"pet id {id} not found", statusCode: 404);
             }
 
-            var petGroup = await _servicePetGroup.FindOneAsync(p => p.PetGroupId == pet.PetGroupId);
-            if (petGroup == null)
+            if (!await _servicePetGroup.ExistsByAsync(p => p.PetGroupId == petRequest.PetGroupId))
             {
-                return NotFound();
+                return Problem(detail: $"pet group id {petRequest.PetGroupId} not found", statusCode: 404);
             }
 
+            _mapper.Map(petRequest, pet);
             await _service.UpdateAsync(pet);
-
             return NoContent();
         }
 
-        // POST: api/Pets
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<ActionResult<Pet>> PostPet(Pet pet)
+        public async Task<ActionResult<Pet>> PostPet(PetRequest petRequest)
         {
-            var entity = await _service.FindOneAsync(p => p.PetId == pet.PetId);
-            if (entity != null)
+            if (await _service.ExistsByAsync(p => p.PetId == petRequest.PetId))
             {
-                return BadRequest();
+                return Problem(detail: $"pet id {petRequest.PetId} already exists", statusCode: 400);
             }
 
-            var petGroup = await _servicePetGroup.FindOneAsync(p => p.PetGroupId == pet.PetGroupId);
-            if (petGroup == null)
+            if (!await _servicePetGroup.ExistsByAsync(p => p.PetGroupId == petRequest.PetGroupId))
             {
-                return NotFound();
+                return Problem(detail: $"pet group id {petRequest.PetGroupId} not found", statusCode: 404);
             }
 
+            var pet = _mapper.Map<Pet>(petRequest);
             await _service.CreateAsync(pet);
-
-            return CreatedAtAction("GetPet", new { id = pet.PetId }, pet);
+            return CreatedAtAction(nameof(GetPet), new { id = pet.PetId }, _mapper.Map<PetResponse>(pet));
         }
 
-        // DELETE: api/Pets/5
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePet(int id)
         {
-
-            var entity = await _service.FindOneAsync(p => p.PetId == id);
-            if (entity == null)
+            var pet = await _service.FindByAsync(p => p.PetId == id);
+            if (pet == null)
             {
-                return NotFound();
+                return Problem(detail: $"pet id {id} not found", statusCode: 404);
             }
-
-            await _service.DeleteAsync(entity);
-
+            await _service.DeleteAsync(pet);
             return NoContent();
         }
     }
